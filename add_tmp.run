@@ -1,0 +1,5 @@
+
+let CURRENT_ID := CURRENT_ID + 1;
+let ID := ID union{CURRENT_ID};
+let COLUMNS_R[CURRENT_ID] := TMP_R;
+let COLUMNS_B[CURRENT_ID] := TMP_B;

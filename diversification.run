@@ -1,0 +1,37 @@
+
+
+let BASE_R := TMP_R;
+let BASE_B := TMP_B;
+let EXTRA_COLS := 0;
+
+for{r in R}{
+	if r in BASE_R then {
+		let TMP_R := BASE_R diff {r};
+	}else{
+		let TMP_R := BASE_R union {r};
+	};
+	let TMP_B := BASE_B;
+	
+	if TMP_REDUCED_COST > 1e-6 then{
+		include add_tmp.run;
+		let EXTRA_COLS := EXTRA_COLS+1;
+	};
+};
+
+
+
+for{b in B}{
+	let TMP_R := BASE_R;
+	if b in BASE_B then{
+		let TMP_B := BASE_B diff {b};
+	}else{
+		let TMP_B := BASE_B union {b}
+	};
+	if TMP_REDUCED_COST > 1e-6 then {
+		include add_tmp.run;
+		let EXTRA_COLS := EXTRA_COLS+1;
+	};
+};
+
+
+

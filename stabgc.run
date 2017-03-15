@@ -1,0 +1,69 @@
+reset;
+option presolve 0;
+option solver cplexamp;
+option cplex_options 'outlev=1 mipdisplay=4 threads=1 presolve=0 sensitivity';
+option solver_msg 0;
+model stabgc.mod;
+model diversification.mod;
+
+data stabgc.dat;
+
+display card(E);
+display card(R);
+display card(B);
+
+display D_R;
+display D_B;
+
+param STOP default 0;
+
+###
+#
+###
+
+let ID := 1.. card(V);
+
+for{r in R}{
+	let CURRENT_ID := CURRENT_ID + 1;
+	let COLUMNS_R[CURRENT_ID] := {r};
+};
+for{b in B}{
+	let CURRENT_ID := CURRENT_ID + 1;
+	let COLUMNS_B[CURRENT_ID] := {b};
+};
+
+param ITERATION default 0;
+
+repeat{
+	let ITERATION := ITERATION+1;
+	# solve master
+	problem master;
+	close master.log;
+	solve modularity > master.log;
+	
+	let{r in R}DUAL_FOR_R[r] := (cover_r[r].dual+fake_ctr.dual);
+	let{b in B}DUAL_FOR_B[b] := (cover_b[b].dual+fake_ctr.dual);
+	#display DUAL_FOR_R, DUAL_FOR_B;
+	problem slave;
+	close slave.log;
+	solve reduced_cost > slave.log;
+		
+	if reduced_cost < 1e-6 then{
+		let STOP := 1;
+	}else{
+		let TMP_R := {r in R: yR[r]>0.5};
+		let TMP_B := {b in B: yB[b]>0.5};
+		include add_tmp.run;		
+		###
+		# DIVERSIFICATION
+		###
+		include diversification.run;
+	};
+	printf"%6d%6d%6d%15.6f%15.6f\n", ITERATION, CURRENT_ID, EXTRA_COLS, modularity, reduced_cost;
+
+}until STOP == 1;
+
+for{id in ID: x[id]>0.5}{
+	display x[id];
+	display COLUMNS_R[id], COLUMNS_B[id];
+};

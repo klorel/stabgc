@@ -1,0 +1,23 @@
+
+param NUMBER_ENUMERATION_R := 2^(card(R))-1;
+param NUMBER_ENUMERATION_B := 2^(card(B))-1;
+
+display NUMBER_ENUMERATION_R;
+display NUMBER_ENUMERATION_B;
+set ENUMERATION_9{1 .. NUMBER_ENUMERATION_R};
+data enumeration_9.dat;
+
+
+let ID := 1..NUMBER_ENUMERATION_R*NUMBER_ENUMERATION_B;
+
+for{id_r in 1 .. NUMBER_ENUMERATION_R, id_b in 1 .. NUMBER_ENUMERATION_B}{
+	let CURRENT_ID := CURRENT_ID + 1;
+	let COLUMNS_R[CURRENT_ID] := ENUMERATION_9[id_r];
+	let COLUMNS_B[CURRENT_ID] := ENUMERATION_9[id_b];
+};
+
+display CURRENT_ID;
+
+solve;
+
+display modularity;
