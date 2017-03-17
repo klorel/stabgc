@@ -38,6 +38,9 @@ param COLUMN_COST_USED{id in ID} := if abs(COLUMN_COST[id])>1e-6 then COLUMN_COS
 param DUAL_FOR_R{R} default 0;
 param DUAL_FOR_B{B} default 0;
 
+param PI_R{R} default 0;
+param PI_B{B} default 0;
+
 
 set TMP_R default {};
 set TMP_B default {};
@@ -59,23 +62,64 @@ param TMP_REDUCED_COST:=
 
 problem master;
 
+
+###
+# stabilization
+###
+param LB default 0;
+param N_BRANCHES := 2;
+param WIDTH := 0.001;
+param PENALTY := 1.1;
+param CENTER_R{R} default 0;
+param CENTER_B{B} default 0;
+
+param BUNDLE_LB default 1e50;
+param BUNDLE_UB default 1e50;
+param UB default 1e50;
+
+param FEAS_R{R} default 0;
+param FEAS_B{B} default 0;
+param FEAS_ERROR := max(max{r in R}abs(FEAS_R[r]), max{b in B}abs(FEAS_B[b]));
+
+param OPT_ERROR default 0;
+
+var z_R_pos{r in R, i in 1..N_BRANCHES} >= 0, <= PENALTY^i;
+var z_R_neg{r in R, i in 1..N_BRANCHES} >= 0, <= PENALTY^i;
+
+var z_B_pos{b in B, i in 1..N_BRANCHES} >= 0, <= PENALTY^i;
+var z_B_neg{b in B, i in 1..N_BRANCHES} >= 0, <= PENALTY^i;
+
 var x{ID} >= 0;
 
-maximize modularity: sum{id in ID}COLUMN_COST_USED[id]*x[id];
+var modularity = +sum{id in ID}COLUMN_COST_USED[id]*x[id];
+
+maximize master_obj:
+	+sum{id in ID}COLUMN_COST_USED[id]*x[id]
+	
+	+sum{r in R, i in 1..N_BRANCHES}z_R_neg[r, i]*(CENTER_R[r]-WIDTH*i)
+	-sum{r in R, i in 1..N_BRANCHES}z_R_pos[r, i]*(CENTER_R[r]+WIDTH*i)
+	
+	+sum{b in B, i in 1..N_BRANCHES}z_B_neg[b, i]*(CENTER_B[b]-WIDTH*i)
+	-sum{b in B, i in 1..N_BRANCHES}z_B_pos[b, i]*(CENTER_B[b]+WIDTH*i)
+	;
 
 subject to cover_r{r in R}: 
-	sum{id in ID} if r in COLUMNS_R[id] then x[id] else 0
+	+sum{id in ID}( if r in COLUMNS_R[id] then x[id] else 0)
+	+sum{i in 1..N_BRANCHES}z_R_neg[r, i]
+	-sum{i in 1..N_BRANCHES}z_R_pos[r, i]
 	=
 	1;
 	
 subject to cover_b{b in B}: 
-	sum{id in ID} if b in COLUMNS_B[id] then x[id] else 0
+	+sum{id in ID}( if b in COLUMNS_B[id] then x[id] else 0)
+	+sum{i in 1..N_BRANCHES}z_B_neg[b, i]
+	-sum{i in 1..N_BRANCHES}z_B_pos[b, i]
 	=
 	1;
 
 subject to fake_ctr:
 	sum{id in ID} (card(COLUMNS_R[id])+card(COLUMNS_B[id])) * x[id] 
-	=
+	<=
 	card(R)+card(B);
  
 problem slave;
@@ -88,6 +132,14 @@ var w{R,B} >= 0;
 subject to ctr_UU{r in R, b in B}: w[r,b] - yR[r] - yB[b] + 1 >=0;
 subject to ctr_LU{r in R, b in B}: w[r,b] - yB[b] <=0;
 subject to ctr_UL{r in R, b in B}: w[r,b] - yR[r] <=0;
+
+var slave_modularity = +sum{r in R, b in B}(( if (r,b) in E then 1 else 0)-D_R[r]*D_B[b]*inv_m)*w[r,b]*inv_m;
+
+var phi = 
+	+slave_modularity	
+	-sum{r in R}PI_R[r]*yR[r]
+	-sum{b in B}PI_B[b]*yB[b]
+	;
 
 maximize reduced_cost:
 	+sum{r in R, b in B}(( if (r,b) in E then 1 else 0)-D_R[r]*D_B[b]*inv_m)*w[r,b]*inv_m

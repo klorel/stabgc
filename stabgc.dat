@@ -1,8 +1,8 @@
 #set E := include txt/toy.txt;
 
-#set E := include txt/south.txt;
+set E := include txt/south.txt;
 #set E := include txt/wafa.txt;
-set E := include txt/divorces.txt;
+#set E := include txt/divorces.txt;
 #set E := include txt/hollyw.txt;
 #set E := include txt/scotl.txt;
 #set E := include txt/graphprod.txt;

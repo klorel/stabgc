@@ -3,6 +3,11 @@ option presolve 0;
 option solver cplexamp;
 option cplex_options 'outlev=1 mipdisplay=4 threads=1 presolve=0 sensitivity';
 option solver_msg 0;
+
+suffix up OUT;
+suffix down OUT;
+suffix current OUT;
+
 model stabgc.mod;
 model diversification.mod;
 
@@ -32,25 +37,45 @@ for{b in B}{
 	let COLUMNS_B[CURRENT_ID] := {b};
 };
 
-param ITERATION default 0;
 
+
+param ITERATION default 0;
+printf"%6s%6s%6s%6s%15s%15s%15s%15s%15s%15s\n", 'ITE', 'STEP', 'NCOLS', 'ECOLS', 'OBJ', 'RC', 'UB', 'BUNDLE_UB', 'FEAS', 'OPT';
+problem master;
+
+param TOL := 1e-1;
+param STEP symbolic default '';
+param SCORE default 0;
 repeat{
 	let ITERATION := ITERATION+1;
 	# solve master
 	problem master;
 	close master.log;
-	solve modularity > master.log;
+	solve master_obj > master.log;
 	
-	let{r in R}DUAL_FOR_R[r] := (cover_r[r].dual+fake_ctr.dual);
-	let{b in B}DUAL_FOR_B[b] := (cover_b[b].dual+fake_ctr.dual);
+	
+	let{r in R} FEAS_R[r] := cover_r[r].slack;
+	let{b in B} FEAS_B[b] := cover_b[b].slack;
+
+	let{r in R}PI_R[r] := cover_r[r].dual;
+	let{b in B}PI_B[b] := cover_b[b].dual;
+	
+	let{r in R}DUAL_FOR_R[r] := (PI_R[r]+fake_ctr.dual);
+	let{b in B}DUAL_FOR_B[b] := (PI_B[b]+fake_ctr.dual);
+	
+	let OPT_ERROR := fake_ctr.dual;
+	
+	
+		
 	#display DUAL_FOR_R, DUAL_FOR_B;
 	problem slave;
 	close slave.log;
-	solve reduced_cost > slave.log;
-		
-	if reduced_cost < 1e-6 then{
+			
+	if FEAS_ERROR <= 1e-6 and abs(modularity - BUNDLE_UB)<1e-6 then{
 		let STOP := 1;
-	}else{
+	} else {
+		solve reduced_cost > slave.log;
+		
 		let TMP_R := {r in R: yR[r]>0.5};
 		let TMP_B := {b in B: yB[b]>0.5};
 		include add_tmp.run;		
@@ -58,10 +83,43 @@ repeat{
 		# DIVERSIFICATION
 		###
 		include diversification.run;
+		
+		let UB := 
+			+sum{r in R} PI_R[r]
+			+sum{b in B} PI_B[b]
+			+(card(R)+card(B))*phi
+			;
+		let SCORE := 
+			(UB - BUNDLE_UB)/(
+				+sum{r in R} PI_R[r]
+				+sum{b in B} PI_B[b]
+				+(card(R)+card(B))*OPT_ERROR
+				-
+				BUNDLE_UB);
+				display SCORE;
+		if SCORE <= TOL or ITERATION == 1 then{
+				let{r in R}CENTER_R[r] := PI_R[r];
+				let{b in B}CENTER_B[b] := PI_B[b];
+				let STEP := 'SS';
+				let BUNDLE_UB := UB;
+		}else{
+			let STEP := 'NS';
+		};
 	};
-	printf"%6d%6d%6d%15.6f%15.6f\n", ITERATION, CURRENT_ID, EXTRA_COLS, modularity, reduced_cost;
+	
+	printf "%6d%6s%6s%6d%15.6f%15.6f%15.6f%15.6f%15.6f%15.6f\n"
+	, ITERATION
+	, STEP
+	, CURRENT_ID
+	, EXTRA_COLS
+	, modularity
+	, reduced_cost
+	, UB
+	, BUNDLE_UB
+	, FEAS_ERROR
+	, OPT_ERROR;
 
-}until STOP == 1;
+}until STOP == 1 or ITERATION ==8;
 
 for{id in ID: x[id]>0.5}{
 	display x[id];

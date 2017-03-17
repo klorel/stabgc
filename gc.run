@@ -1,0 +1,90 @@
+reset;
+option presolve 0;
+option solver cplexamp;
+option cplex_options 'outlev=1 mipdisplay=4 threads=1 presolve=0 sensitivity';
+option solver_msg 0;
+
+suffix up OUT;
+suffix down OUT;
+suffix current OUT;
+
+model stabgc.mod;
+model diversification.mod;
+
+data stabgc.dat;
+
+display card(E);
+display card(R);
+display card(B);
+
+display D_R;
+display D_B;
+
+param STOP default 0;
+
+###
+#
+###
+
+let ID := 1.. card(V);
+
+for{r in R}{
+	let CURRENT_ID := CURRENT_ID + 1;
+	let COLUMNS_R[CURRENT_ID] := {r};
+};
+for{b in B}{
+	let CURRENT_ID := CURRENT_ID + 1;
+	let COLUMNS_B[CURRENT_ID] := {b};
+};
+
+param ITERATION default 0;
+printf"%6s%6s%6s%15s%15s%15s%15s%15s\n", 'ITE', 'NCOLS', 'ECOLS', 'OBJ', 'RC', 'UB', 'FEAS', 'OPT';
+problem master;
+drop fake_ctr;
+fix{r in R, i in 1..N_BRANCHES} z_R_pos[r, i] := 0;
+fix{r in R, i in 1..N_BRANCHES} z_R_neg[r, i] := 0;
+
+fix{b in B, i in 1..N_BRANCHES} z_B_pos[b, i] := 0;
+fix{b in B, i in 1..N_BRANCHES} z_B_neg[b, i] := 0;
+
+repeat{
+	let ITERATION := ITERATION+1;
+	# solve master
+	problem master;
+	close master.log;
+	solve master_obj > master.log;
+	
+	
+	let{r in R}DUAL_FOR_R[r] := (cover_r[r].dual);
+	let{b in B}DUAL_FOR_B[b] := (cover_b[b].dual);
+	
+	#display DUAL_FOR_R, DUAL_FOR_B;
+	problem slave;
+	close slave.log;
+	solve reduced_cost > slave.log;
+	
+	let BUNDLE_UB := 
+		+sum{r in R} PI_R[r]
+		+sum{b in B} PI_B[b]
+		+phi
+		;
+		
+	if reduced_cost < 1e-6 then{
+		let STOP := 1;
+	}else{
+		let TMP_R := {r in R: yR[r]>0.5};
+		let TMP_B := {b in B: yB[b]>0.5};
+		include add_tmp.run;		
+		###
+		# DIVERSIFICATION
+		###
+		include diversification.run;
+	};
+	printf"%6d%6d%6d%15.6f%15.6f%15.6f%15.6f%15.6f\n", ITERATION, CURRENT_ID, EXTRA_COLS, modularity, reduced_cost, BUNDLE_UB, FEAS_ERROR, OPT_ERROR;
+
+}until STOP == 1;
+
+for{id in ID: x[id]>0.5}{
+	display x[id];
+	display COLUMNS_R[id], COLUMNS_B[id];
+};
