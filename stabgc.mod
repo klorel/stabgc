@@ -66,7 +66,6 @@ problem master;
 ###
 # stabilization
 ###
-param LB default 0;
 param N_BRANCHES := 2;
 param WIDTH := 0.001;
 param PENALTY default 1.1;
@@ -92,6 +91,8 @@ var z_B_neg{b in B, i in 1..N_BRANCHES} >= 0, <= PENALTY^i;
 var x{ID} >= 0;
 
 var modularity = +sum{id in ID}COLUMN_COST_USED[id]*x[id];
+
+var c_dot_x = +sum{id in ID}COLUMN_COST_USED[id]*x[id];
 
 maximize master_obj:
 	+sum{id in ID}COLUMN_COST_USED[id]*x[id]
@@ -121,6 +122,8 @@ subject to fake_ctr:
 	sum{id in ID} (card(COLUMNS_R[id])+card(COLUMNS_B[id])) * x[id] 
 	<=
 	card(R)+card(B);
+
+param B_BAR := card(R)+card(B);
  
 problem slave;
 
@@ -135,6 +138,12 @@ subject to ctr_UL{r in R, b in B}: w[r,b] - yR[r] <=0;
 
 var slave_modularity = +sum{r in R, b in B}(( if (r,b) in E then 1 else 0)-D_R[r]*D_B[b]*inv_m)*w[r,b]*inv_m;
 
+var rc_pi = 
+	+slave_modularity	
+	-sum{r in R}PI_R[r]*yR[r]
+	-sum{b in B}PI_B[b]*yB[b]
+	;
+
 var phi = 
 	+slave_modularity	
 	-sum{r in R}PI_R[r]*yR[r]
@@ -146,4 +155,4 @@ maximize reduced_cost:
 	-sum{r in R}DUAL_FOR_R[r]*yR[r]
 	-sum{b in B}DUAL_FOR_B[b]*yB[b]
 	;
-	
+param LB default 0;

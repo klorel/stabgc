@@ -54,7 +54,6 @@ repeat{
 	close master.log;
 	solve master_obj > master.log;
 	
-	
 	let{r in R}DUAL_FOR_R[r] := (cover_r[r].dual);
 	let{b in B}DUAL_FOR_B[b] := (cover_b[b].dual);
 	
@@ -78,7 +77,7 @@ repeat{
 		###
 		# DIVERSIFICATION
 		###
-		include diversification.run;
+		#include diversification.run;
 	};
 	printf"%6d%6d%6d%15.6f%15.6f%15.6f%15.6f%15.6f\n", ITERATION, CURRENT_ID, EXTRA_COLS, modularity, reduced_cost, BUNDLE_UB, FEAS_ERROR, OPT_ERROR;
 
