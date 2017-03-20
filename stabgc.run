@@ -45,8 +45,6 @@ problem master;
 
 param TOL := 1e-1;
 param STEP symbolic default '';
-param LB default 0;
-
 
 # phi star of the paper, the best known
 param PHI_PI default 0;
