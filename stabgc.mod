@@ -1,7 +1,8 @@
 # modularity bipartite : 
 # (1/m) sum{r,b} (x[r,b]-d[r]*d[b]/m)
 # pour C : (1/m) card(e in C) - (1/m)² d[R]*d[B]
- 
+
+param LB default 0; 
 set E dimen 2;
 
 param m := card(E);
@@ -155,4 +156,3 @@ maximize reduced_cost:
 	-sum{r in R}DUAL_FOR_R[r]*yR[r]
 	-sum{b in B}DUAL_FOR_B[b]*yB[b]
 	;
-param LB default 0;
