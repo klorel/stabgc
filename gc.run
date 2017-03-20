@@ -8,7 +8,7 @@ suffix up OUT;
 suffix down OUT;
 suffix current OUT;
 
-model stabgc.mod;
+model gc.mod;
 model diversification.mod;
 
 data stabgc.dat;
@@ -38,14 +38,8 @@ for{b in B}{
 };
 
 param ITERATION default 0;
-printf"%6s%6s%6s%15s%15s%15s%15s%15s\n", 'ITE', 'NCOLS', 'ECOLS', 'OBJ', 'RC', 'UB', 'FEAS', 'OPT';
-problem master;
-drop fake_ctr;
-fix{r in R, i in 1..N_BRANCHES} z_R_pos[r, i] := 0;
-fix{r in R, i in 1..N_BRANCHES} z_R_neg[r, i] := 0;
+printf"%6s%6s%6s%15s%15s\n", 'ITE', 'NCOLS', 'ECOLS', 'OBJ', 'RC';
 
-fix{b in B, i in 1..N_BRANCHES} z_B_pos[b, i] := 0;
-fix{b in B, i in 1..N_BRANCHES} z_B_neg[b, i] := 0;
 
 repeat{
 	let ITERATION := ITERATION+1;
@@ -62,12 +56,6 @@ repeat{
 	close slave.log;
 	solve reduced_cost > slave.log;
 	
-	let BUNDLE_UB := 
-		+sum{r in R} PI_R[r]
-		+sum{b in B} PI_B[b]
-		+phi
-		;
-		
 	if reduced_cost < 1e-6 then{
 		let STOP := 1;
 	}else{
@@ -77,13 +65,13 @@ repeat{
 		###
 		# DIVERSIFICATION
 		###
-		#include diversification.run;
+		include diversification.run;
 	};
-	printf"%6d%6d%6d%15.6f%15.6f%15.6f%15.6f%15.6f\n", ITERATION, CURRENT_ID, EXTRA_COLS, modularity, reduced_cost, BUNDLE_UB, FEAS_ERROR, OPT_ERROR;
+	printf"%6d%6d%6d%15.6f%15.6f\n", ITERATION, CURRENT_ID, EXTRA_COLS, c_dot_x, reduced_cost;
 
 }until STOP == 1;
 
 for{id in ID: x[id]>0.5}{
-	display x[id];
-	display COLUMNS_R[id], COLUMNS_B[id];
+	printf "x[%6d] = %10f\n", id, x[id];
+	# display COLUMNS_R[id], COLUMNS_B[id];
 };

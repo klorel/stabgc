@@ -64,64 +64,23 @@ param TMP_REDUCED_COST:=
 problem master;
 
 
-###
-# stabilization
-###
-param N_BRANCHES := 6;
-param WIDTH := 0.01;
-param PENALTY default 5;
-param CENTER_R{R} default 0;
-param CENTER_B{B} default 0;
-
-param FEAS_R{R} default 0;
-param FEAS_B{B} default 0;
-param FEAS_ERROR := max(max{r in R}abs(FEAS_R[r]), max{b in B}abs(FEAS_B[b]));
-
-param OPT_ERROR default 0;
-
-var z_R_pos{r in R, i in 1..N_BRANCHES} >= 0, <= PENALTY^i;
-var z_R_neg{r in R, i in 1..N_BRANCHES} >= 0, <= PENALTY^i;
-
-var z_B_pos{b in B, i in 1..N_BRANCHES} >= 0, <= PENALTY^i;
-var z_B_neg{b in B, i in 1..N_BRANCHES} >= 0, <= PENALTY^i;
-
 var x{ID} >= 0;
-
-var modularity = +sum{id in ID}COLUMN_COST_USED[id]*x[id];
 
 var c_dot_x = +sum{id in ID}COLUMN_COST_USED[id]*x[id];
 
 maximize master_obj:
-	+sum{id in ID}COLUMN_COST_USED[id]*x[id]
-	
-	+sum{r in R, i in 1..N_BRANCHES}z_R_neg[r, i]*(CENTER_R[r]-WIDTH*i)
-	-sum{r in R, i in 1..N_BRANCHES}z_R_pos[r, i]*(CENTER_R[r]+WIDTH*i)
-	
-	+sum{b in B, i in 1..N_BRANCHES}z_B_neg[b, i]*(CENTER_B[b]-WIDTH*i)
-	-sum{b in B, i in 1..N_BRANCHES}z_B_pos[b, i]*(CENTER_B[b]+WIDTH*i)
-	;
+	+sum{id in ID}COLUMN_COST_USED[id]*x[id]	;
 
 subject to cover_r{r in R}: 
 	+sum{id in ID}( if r in COLUMNS_R[id] then x[id] else 0)
-	+sum{i in 1..N_BRANCHES}z_R_neg[r, i]
-	-sum{i in 1..N_BRANCHES}z_R_pos[r, i]
 	=
 	1;
 	
 subject to cover_b{b in B}: 
 	+sum{id in ID}( if b in COLUMNS_B[id] then x[id] else 0)
-	+sum{i in 1..N_BRANCHES}z_B_neg[b, i]
-	-sum{i in 1..N_BRANCHES}z_B_pos[b, i]
 	=
 	1;
 
-subject to fake_ctr:
-	sum{id in ID} (card(COLUMNS_R[id])+card(COLUMNS_B[id])) * x[id] 
-	<=
-	card(R)+card(B);
-
-param B_BAR := card(R)+card(B);
- 
 problem slave;
 
 var yR{R} binary;
@@ -134,18 +93,6 @@ subject to ctr_LU{r in R, b in B}: w[r,b] - yB[b] <=0;
 subject to ctr_UL{r in R, b in B}: w[r,b] - yR[r] <=0;
 
 var slave_modularity = +sum{r in R, b in B}(( if (r,b) in E then 1 else 0)-D_R[r]*D_B[b]*inv_m)*w[r,b]*inv_m;
-
-var rc_pi = 
-	+slave_modularity	
-	-sum{r in R}PI_R[r]*yR[r]
-	-sum{b in B}PI_B[b]*yB[b]
-	;
-
-var phi = 
-	+slave_modularity	
-	-sum{r in R}PI_R[r]*yR[r]
-	-sum{b in B}PI_B[b]*yB[b]
-	;
 
 maximize reduced_cost:
 	+sum{r in R, b in B}(( if (r,b) in E then 1 else 0)-D_R[r]*D_B[b]*inv_m)*w[r,b]*inv_m
