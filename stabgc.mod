@@ -69,7 +69,7 @@ problem master;
 param LB default 0;
 param N_BRANCHES := 2;
 param WIDTH := 0.001;
-param PENALTY := 1.1;
+param PENALTY default 1.1;
 param CENTER_R{R} default 0;
 param CENTER_B{B} default 0;
 

@@ -52,10 +52,9 @@ repeat{
 	problem master;
 	close master.log;
 	solve master_obj > master.log;
-	
-	
-	let{r in R} FEAS_R[r] := cover_r[r].slack;
-	let{b in B} FEAS_B[b] := cover_b[b].slack;
+	#display master_obj;
+	let{r in R} FEAS_R[r] := 1-sum{id in ID}( if r in COLUMNS_R[id] then x[id] else 0);
+	let{b in B} FEAS_B[b] := 1-sum{id in ID}( if b in COLUMNS_B[id] then x[id] else 0);
 
 	let{r in R}PI_R[r] := cover_r[r].dual;
 	let{b in B}PI_B[b] := cover_b[b].dual;
@@ -64,8 +63,6 @@ repeat{
 	let{b in B}DUAL_FOR_B[b] := (PI_B[b]+fake_ctr.dual);
 	
 	let OPT_ERROR := fake_ctr.dual;
-	
-	
 		
 	#display DUAL_FOR_R, DUAL_FOR_B;
 	problem slave;
@@ -76,19 +73,21 @@ repeat{
 	} else {
 		solve reduced_cost > slave.log;
 		
-		let TMP_R := {r in R: yR[r]>0.5};
-		let TMP_B := {b in B: yB[b]>0.5};
-		include add_tmp.run;		
-		###
-		# DIVERSIFICATION
-		###
-		include diversification.run;
-		
 		let UB := 
 			+sum{r in R} PI_R[r]
 			+sum{b in B} PI_B[b]
 			+(card(R)+card(B))*phi
 			;
+		
+		let TMP_R := {r in R: yR[r]>0.5};
+		let TMP_B := {b in B: yB[b]>0.5};
+		
+		include add_tmp.run;		
+		###
+		# DIVERSIFICATION
+		###
+		# include diversification.run;
+		
 		let SCORE := 
 			(UB - BUNDLE_UB)/(
 				+sum{r in R} PI_R[r]
@@ -96,7 +95,7 @@ repeat{
 				+(card(R)+card(B))*OPT_ERROR
 				-
 				BUNDLE_UB);
-				display SCORE;
+	#display SCORE;
 		if SCORE <= TOL or ITERATION == 1 then{
 				let{r in R}CENTER_R[r] := PI_R[r];
 				let{b in B}CENTER_B[b] := PI_B[b];
@@ -104,6 +103,9 @@ repeat{
 				let BUNDLE_UB := UB;
 		}else{
 			let STEP := 'NS';
+			if reduced_cost < 1e-6 then {
+				let PENALTY :=  PENALTY * 0.5;
+			};
 		};
 	};
 	
@@ -119,7 +121,7 @@ repeat{
 	, FEAS_ERROR
 	, OPT_ERROR;
 
-}until STOP == 1 or ITERATION ==8;
+}until STOP == 1 or ITERATION == 50;
 
 for{id in ID: x[id]>0.5}{
 	display x[id];
