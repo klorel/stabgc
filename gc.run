@@ -17,8 +17,8 @@ display card(E);
 display card(R);
 display card(B);
 
-display D_R;
-display D_B;
+#display D_R;
+#display D_B;
 
 param STOP default 0;
 
@@ -67,11 +67,11 @@ repeat{
 		###
 		include diversification.run;
 	};
-	printf"%6d%6d%6d%15.6f%15.6f\n", ITERATION, CURRENT_ID, EXTRA_COLS, c_dot_x, reduced_cost;
+	printf"%6d%6d%6d%15.6E%15.6E\n", ITERATION, CURRENT_ID, EXTRA_COLS, c_dot_x, reduced_cost;
 
 }until STOP == 1;
 
-for{id in ID: x[id]>0.5}{
-	printf "x[%6d] = %10f\n", id, x[id];
-	# display COLUMNS_R[id], COLUMNS_B[id];
+for{id in ID: x[id]>1e-3}{
+	printf "x[%6d] = %10.6E\n", id, x[id];
+	display COLUMNS_R[id], COLUMNS_B[id];
 };

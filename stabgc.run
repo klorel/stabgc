@@ -17,8 +17,8 @@ display card(E);
 display card(R);
 display card(B);
 
-display D_R;
-display D_B;
+#display D_R;
+#display D_B;
 
 param STOP default 0;
 
@@ -37,6 +37,10 @@ for{b in B}{
 	let COLUMNS_B[CURRENT_ID] := {b};
 };
 
+param NB_NS default 0;
+param NB_SS default 0;
+
+param NB_UPDATE default 10;
 
 
 param ITERATION default 0;
@@ -64,9 +68,10 @@ param MOD default 0;
 ### ### ### ### ### ### ### 
 # RC convention : c - pi.b 
 ### ### ### ### ### ### ### 
-printf "%6s%6s%15s%15s%15s%15s%15s\n", 
+printf "%6s%6s%15s%15s%15s%15s%15s%15s\n", 
 	'ITE',
 	'STEP',
+	'PENALTY',
 	'PHI_B_PI',
 	'PHI_PI',
 	'PHI_PI_BAR',
@@ -92,38 +97,57 @@ repeat{
 	let{b in B}DUAL_FOR_B[b] := (PI_B[b]+fake_ctr.dual);
 	
 	let PHI_DOT_B := sum{r in R}PI_R[r] + sum{b in B}PI_B[b];
-	let PHI_B_PI := PHI_DOT_B + B_BAR * max{id in ID}(COLUMN_COST_USED[id] - sum{r in COLUMNS_R[id]}PI_R[r] - sum{b in COLUMNS_B[id]}PI_B[b] );
+	let PHI_B_PI := PHI_DOT_B + B_BAR * fake_ctr.dual;
+	
+	#display max{id in ID}(COLUMN_COST_USED[id] - sum{r in COLUMNS_R[id]}PI_R[r] - sum{b in COLUMNS_B[id]}PI_B[b])/(card(COLUMNS_R[id])+card(COLUMNS_B[id]));
+	#display fake_ctr.dual;
 
 	problem slave;
 	close slave.log;
 	
-	let PHI_PI := PHI_DOT_B + B_BAR*rc_pi;
-	
-	if FEAS_ERROR <= 1e-6 and abs(PHI_DOT_B - PHI_PI_BAR)<1e-6 then{
+	if FEAS_ERROR <= 1e-6 and abs(modularity - PHI_PI_BAR)<1e-6 then{
 		let STOP := 1;
 	} else {
 		solve reduced_cost > slave.log;
+		
+		let PHI_PI := PHI_DOT_B + B_BAR*rc_pi/(max(1, sum{r in R}yR[r]+sum{b in B}yB[b]));
 
 		let TMP_R := {r in R: yR[r]>0.5};
 		let TMP_B := {b in B: yB[b]>0.5};
 		
 		include add_tmp.run;
-		if SCORE <= 0 or ITERATION > 1 then{
+		if ITERATION >1 and (SCORE <= 0 or ITERATION == 2) then{
 			let{r in R}CENTER_R[r] := PI_R[r];
 			let{b in B}CENTER_B[b] := PI_B[b];
 			let STEP := 'SS';
 			let PHI_PI_BAR := PHI_PI;
+			
+			let NB_SS := NB_SS+1;
+			let NB_NS := 0;
 		}else{
 			let STEP := 'NS';
+			let NB_NS := NB_NS+1;
+			let NB_SS := 0;
 		};		
+		if NB_SS >= NB_UPDATE then{
+			if PENALTY^N_BRANCHES >= -1e6 then 
+				let PENALTY := PENALTY * 0.5;
+			let NB_SS := 0; 
+		};	
+		if NB_NS >= NB_UPDATE then{
+			if PENALTY^N_BRANCHES <= 1e6 then 
+				let PENALTY := PENALTY * 2;
+			let NB_NS := 0; 
+		};
 		###
 		# DIVERSIFICATION
 		###
 		include diversification.run;
 	};
-	printf "%6d%6s%15.6E%15.6E%15.6E%15.6E%15.6E\n", 
+	printf "%6d%6s%15.6E%15.6E%15.6E%15.6E%15.6E%15.6E\n", 
 		ITERATION,
 		STEP,
+		PENALTY, 
 		PHI_B_PI,
 		PHI_PI,
 		PHI_PI_BAR,
@@ -132,7 +156,7 @@ repeat{
 		;
 }until STOP == 1;
 
-for{id in ID: x[id]>0.5}{
-	display x[id];
+for{id in ID: x[id]>1e-3}{
+	printf "x[%6d] = %10.6E\n", id, x[id];
 	display COLUMNS_R[id], COLUMNS_B[id];
 };

@@ -67,9 +67,9 @@ problem master;
 ###
 # stabilization
 ###
-param N_BRANCHES := 6;
-param WIDTH := 0.01;
-param PENALTY default 5;
+param N_BRANCHES := 2;
+param WIDTH := 0.001;
+param PENALTY default 2;
 param CENTER_R{R} default 0;
 param CENTER_B{B} default 0;
 
@@ -115,12 +115,14 @@ subject to cover_b{b in B}:
 	=
 	1;
 
+param B_BAR := card(R)+card(B);
+
 subject to fake_ctr:
 	sum{id in ID} (card(COLUMNS_R[id])+card(COLUMNS_B[id])) * x[id] 
 	<=
-	card(R)+card(B);
+	B_BAR;
+	
 
-param B_BAR := card(R)+card(B);
  
 problem slave;
 
